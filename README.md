@@ -53,6 +53,9 @@ This architecture solves those constraints by completely decoupling the applicat
 
 The transactional workflow loops through the environment via distinct pathways:
 
+<img width="2816" height="1536" alt="quickloan arch diagram" src="https://github.com/user-attachments/assets/6ad7b25f-ee38-47a3-8cc7-a05e4681d711" />
+
+
 1. **Public Entrance:** End users target the custom host pointer quickloann.hopto.org. Dynamic DNS checks route queries directly to the active Application Load Balancer (ALB) footprint.
 
 2. **Load Apportionment:** The ALB evaluates targets across availability zones us-west-2a and us-west-2b and targets the stateless application web server fleet on Port 80.
@@ -138,6 +141,7 @@ The transactional workflow loops through the environment via distinct pathways:
 **Step 1.1: Virtual Private Cloud (VPC) Subsystem**
 
 * Configuration parameters: Select 'VPC Only', IPv4 CIDR Block = 10.10.0.0/16. Once provisioned, open the Actions panel, select Edit VPC settings, and explicitly enable both DNS resolution and DNS hostnames.
+
 <img width="1366" height="768" alt="vpc" src="https://github.com/user-attachments/assets/b70d86a7-9334-45d7-b311-ee218d6919fb" />
 
 * Technical Context: This establishes your isolated software data center. Enabling DNS hostnames is required to ensure that frontend servers can resolve the dynamic database endpoints provisioned by Amazon RDS.
@@ -146,6 +150,7 @@ The transactional workflow loops through the environment via distinct pathways:
 **Step 1.2: Redundant Multi-Availability Zone Subnet Architecture**
 
 * Configuration parameters: Allocate three subnets bounded inside your custom VPC:
+
 <img width="1366" height="768" alt="subnets" src="https://github.com/user-attachments/assets/5560967a-3717-4078-b858-e00370e8b43e" />
 
 * public-subnet1 inside Availability Zone us-west-2a with CIDR block 10.10.1.0/24.
@@ -161,7 +166,9 @@ The transactional workflow loops through the environment via distinct pathways:
 **Step 1.3: Gateway and Route Table Execution Maps**
 
 * Configuration parameters: Instantiate an Internet Gateway (IGW-quickloan) and mount it to your VPC. Create a NAT Gateway (NAT-quickloan) placed explicitly inside public-subnet1, binding it to an Allocated Elastic IP.
+
 <img width="1366" height="768" alt="internet gateway" src="https://github.com/user-attachments/assets/d64448c5-69e3-4f44-ae5b-adf1331385d5" />
+
 <img width="1366" height="768" alt="nat gateway" src="https://github.com/user-attachments/assets/984c4dee-a695-45d6-9801-c903ef861402" />
 
 
@@ -174,6 +181,7 @@ The transactional workflow loops through the environment via distinct pathways:
 **Step 2.1: Designing Inter-Tier Security Group Handshakes**
 
 * Configuration parameters: Generate an edge firewall named APP-JUMP-SG matching your VPC. Inject inbound authorization constraints: allow Port 80 from 0.0.0.0/0, allow Port 22 from your specific administrator workstation IP address, and allow Port 3306 internally from 10.10.0.0/16.
+
 <img width="1366" height="768" alt="security group inbound app server" src="https://github.com/user-attachments/assets/1d66889c-e5e6-4b03-a3c2-51c6470da64e" />
 
 * Technical Context: Create a second firewall group named DATABASE-SG. Under inbound settings, select Type as MySQL/Aurora (3306) and choose the Source as Custom, binding it directly to the security group ID of your APP-JUMP-SG. This process is known as Security Group Referencing, which ensures no outside internet requests can reach the data boundary.
@@ -185,6 +193,7 @@ The transactional workflow loops through the environment via distinct pathways:
 **Step 3.1: Server Infrastructure Allocation**
 
 * Configuration parameters: Deploy two distinct EC2 instances using the Amazon Linux 2023 AMI standard on a t3.micro architecture template, using your unique key pair configuration (LTKP.pem):
+
 <img width="1366" height="768" alt="instances" src="https://github.com/user-attachments/assets/4a8dbc97-bb80-4a91-a315-a30be758f6bf" />
 
 * APP-SERVER: Placed inside public-subnet1 with Auto-assign Public IP enabled, bound to APP-JUMP-SG.
@@ -246,6 +255,7 @@ sudo chmod -R 755 /usr/share/nginx/html/public
 **Step 6.1: Provisioning the Relational Engine**
 
 * Configuration parameters: Create a DB Subnet Group choosing vpc-quickloan and map it across your regional AZ subnets. Create an Amazon RDS database engine selecting MySQL (Engine 8.0) under a Free Tier template layer named customer-db. Set master user as admin and password as admin123. Disable Public Access, apply your DATABASE-SG group firewall, and capture the dynamic engine connection endpoint string.
+
 <img width="1366" height="768" alt="rds database" src="https://github.com/user-attachments/assets/14636a4c-99d5-4ba3-a656-beb117af2579" />
 
 
@@ -291,6 +301,7 @@ sudo systemctl restart nginx
 **Step 8.1: Creating the Golden Image (AMI) Snapshot**
 
 * Configuration parameters: Select your fully configured APP-SERVER, click the Actions menu, and navigate to Image and templates > Create image. Name the resource app-server-image. Once the AMI status changes to Available, safe-stop your original staging application server instance.
+
 <img width="1366" height="768" alt="AMI available detail" src="https://github.com/user-attachments/assets/03c08a84-2fa0-4d20-9ceb-7d0f6f0e8a6f" />
 
 *
@@ -306,6 +317,7 @@ sudo systemctl restart nginx
 **Step 8.3: Target Group and Application Load Balancer Execution**
 
 * Configuration parameters: Create an Instance-type Target Group named TG-quickloan over HTTP Port 80, pointing health evaluations directly to path /public/index.html.
+
 <img width="1366" height="768" alt="targey group health status" src="https://github.com/user-attachments/assets/5866b182-ebc1-41f4-ad8f-c6ec8208f514" />
 
 
@@ -328,6 +340,7 @@ sudo systemctl restart nginx
 **Step 9.1: Deploying the Resilient Auto Scaling Group**
 
 * Configuration parameters: Create an Auto Scaling Group named ASG-quickloan bound to your LT1 template blueprint. Choose your custom VPC and bind it across both your public subnet networks. Attach to your existing load balancer target group (TG-quickloan) and check the box to enable ELB health checks. Define capacity metrics as Desired = 2, Minimum = 1, Maximum = 5.
+
 <img width="1366" height="768" alt="cloudwatch alarms" src="https://github.com/user-attachments/assets/6b28cbef-ebfa-439b-b3ce-ab29f301189e" />
 
 *
@@ -335,11 +348,13 @@ sudo systemctl restart nginx
 **Step 9.2: SNS Alerts & CloudWatch Automated Scaling Rules**
 
 * Configuration parameters: Create a Standard Amazon SNS Topic named quickloan-alert (or AWS-PROJECT-NOTIFICATION) and add an Email subscription pointing directly to your primary admin inbox monitor.
+
 <img width="1366" height="768" alt="sns topic email" src="https://github.com/user-attachments/assets/87168aef-3921-4caa-a47a-0be4d215781f" />
 
 <img width="1366" height="768" alt="ASG policies" src="https://github.com/user-attachments/assets/6c7fdeca-1ffc-46a7-8e94-5c6d34a06304" />
 
 * Open CloudWatch Alarms and configure two custom rules : Quickloan-Highcpu-Alarm configured to trigger when average CPU utilization across the group goes Greater than 70% for 1 minute ; and Quickloan-Lowcpu-Alarm configured to trigger when average CPU drops Lower than 20% for 1 minute. Link both alarms to send alerts directly to your SNS topic.
+
 <img width="1366" height="768" alt="cloudwatch alarms" src="https://github.com/user-attachments/assets/615f6ef6-641d-4f2a-b009-37a8a9c5228e" />
 
 
@@ -361,9 +376,11 @@ stress-ng --cpu 4 --timeout 600s --metrics-brief
 **Step 10.2: Validating System Response & Failover Execution**
 
 * System Event Monitoring: Within a minute of running the stress test, check your inbox for an automated notification confirming that the high CPU limit has been breached. Check your active EC2 instances console panel to watch the Auto Scaling Group automatically spin up a third application instance clone to alleviate system load.
+
 <img width="1366" height="768" alt="Screenshot 2026-05-05 214650" src="https://github.com/user-attachments/assets/c7389716-1bd7-444d-b613-da591609ae68" />
 
 <img width="1366" height="768" alt="stress test email high" src="https://github.com/user-attachments/assets/13573387-a3d8-4dbd-908a-98a778fcefb0" />
+
 <img width="1366" height="768" alt="stress test instance launch automatic" src="https://github.com/user-attachments/assets/c76a32f5-d819-40f4-9ab2-a8de4594e632" />
 
 *
